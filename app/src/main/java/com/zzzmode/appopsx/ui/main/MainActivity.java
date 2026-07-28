@@ -33,6 +33,8 @@ import com.zzzmode.appopsx.ui.main.group.PermissionGroupActivity;
 import com.zzzmode.appopsx.ui.main.usagestats.PermsUsageStatsActivity;
 import com.zzzmode.appopsx.ui.model.AppInfo;
 import com.zzzmode.appopsx.ui.widget.CommonDivderDecorator;
+import com.zzzmode.appopsx.common.ShizukuCompat;
+import rikka.shizuku.Shizuku;
 import io.reactivex.SingleObserver;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.disposables.Disposable;
@@ -56,6 +58,17 @@ public class MainActivity extends BaseActivity implements SearchView.OnQueryText
   private SearchHandler mSearchHandler;
 
   private View containerApp, containerSearch;
+
+  private static final int SHIZUKU_PERMISSION_REQUEST_CODE = 9110;
+
+  private final Shizuku.OnRequestPermissionResultListener mShizukuPermissionListener =
+      (requestCode, grantResult) -> {
+        if (requestCode != SHIZUKU_PERMISSION_REQUEST_CODE) return;
+        // Whether granted or denied, kick off (or re-attempt) loading data now that we
+        // know the answer -- if granted, Shell.getRootShell() will pick up Shizuku on
+        // its next call; if denied, it'll fall back to asking for "su" like before.
+        loadData(true);
+      };
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -93,8 +106,14 @@ public class MainActivity extends BaseActivity implements SearchView.OnQueryText
     recyclerView.addItemDecoration(new CommonDivderDecorator(getApplicationContext()));
     recyclerView.setItemAnimator(new RefactoredDefaultItemAnimator());
 
+    Shizuku.addRequestPermissionResultListener(mShizukuPermissionListener);
+
     adapter = new MainListAdapter();
     recyclerView.setAdapter(adapter);
+
+    if (ShizukuCompat.needsPermissionRequest()) {
+      Shizuku.requestPermission(SHIZUKU_PERMISSION_REQUEST_CODE);
+    }
 
     loadData(true);
     mSwipeRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
@@ -313,6 +332,7 @@ public class MainActivity extends BaseActivity implements SearchView.OnQueryText
   @Override
   protected void onDestroy() {
     super.onDestroy();
+    Shizuku.removeRequestPermissionResultListener(mShizukuPermissionListener);
   }
 
 
