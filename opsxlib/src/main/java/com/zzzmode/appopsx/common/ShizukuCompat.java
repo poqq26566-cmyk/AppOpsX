@@ -36,4 +36,15 @@ public class ShizukuCompat {
   public static boolean needsPermissionRequest() {
     return isAvailable() && !hasPermission() && !Shizuku.isPreV11();
   }
+
+  // Shared helper: opens a Process running with whatever privilege Shizuku itself was
+  // started with (root or adb shell). Shizuku.newProcess is marked private in the
+  // public API jar, so this goes through reflection -- documented community workaround,
+  // see https://github.com/RikkaApps/Shizuku-API/issues/276
+  public static Process newProcess(String[] cmd) throws Exception {
+    java.lang.reflect.Method m = Shizuku.class.getDeclaredMethod(
+        "newProcess", String[].class, String[].class, String.class);
+    m.setAccessible(true);
+    return (Process) m.invoke(null, (Object) cmd, null, null);
+  }
 }
