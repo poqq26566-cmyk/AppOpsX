@@ -5,6 +5,7 @@ apply plugin: 'com.android.application'
 apply from: "../private/privateResource.gradle"
 
 android {
+    namespace 'com.zzzmode.appopsx'
     compileSdkVersion rootProject.ext.compileSdkVersion
     defaultConfig {
         applicationId "com.zzzmode.appopsx"
