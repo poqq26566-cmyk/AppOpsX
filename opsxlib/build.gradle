@@ -48,6 +48,7 @@ dependencies {
 //    compile project(":opsdeps")
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     compileOnly project(":apicompat")
+    implementation 'dev.rikka.shizuku:api:13.1.5'
 }
 
 build.doLast {
