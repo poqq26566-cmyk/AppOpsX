@@ -16,6 +16,7 @@ import android.view.ViewTreeObserver.OnGlobalLayoutListener;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 import androidx.appcompat.widget.SearchView;
+import androidx.appcompat.widget.PopupMenu;
 import androidx.appcompat.widget.Toolbar;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -64,6 +65,13 @@ public class MainActivity extends BaseActivity implements SearchView.OnQueryText
     Toolbar toolbar = findViewById(R.id.toolbar);
     setSupportActionBar(toolbar);
     setTitle(R.string.app_name);
+
+    // Hamburger icon on the left of the title, replacing the auto-generated "..."
+    // overflow button that used to sit on the right (it housed action_permission_sort /
+    // action_backup / action_stats / the user-switcher submenu; those now live in the
+    // popup menu shown from this icon instead -- see showHamburgerMenu()).
+    toolbar.setNavigationIcon(R.drawable.ic_menu_hamburger);
+    toolbar.setNavigationOnClickListener(v -> showHamburgerMenu(v));
 
     Log.e(TAG, "onCreate --> ");
     mSearchHandler = new SearchHandler();
@@ -179,18 +187,68 @@ public class MainActivity extends BaseActivity implements SearchView.OnQueryText
       case R.id.action_setting:
         openSetting();
         return true;
-      case R.id.action_permission_sort:
-        openSortPermission();
-        return true;
-      case R.id.action_backup:
-        openConfigPerms();
-        return true;
-      case R.id.action_stats:
-        openUsageStats();
-        return true;
       default:
         return super.onOptionsItemSelected(item);
     }
+  }
+
+  // Popup menu anchored to the new hamburger toolbar icon. Holds what used to be the
+  // auto-generated right-side overflow ("...") contents: sort / backup / stats, plus
+  // the multi-user switcher submenu when the device has more than one user.
+  private void showHamburgerMenu(View anchor) {
+    PopupMenu popupMenu = new PopupMenu(this, anchor);
+    popupMenu.getMenuInflater().inflate(R.menu.hamburger_menu, popupMenu.getMenu());
+
+    Menu menu = popupMenu.getMenu();
+    menu.findItem(R.id.action_backup).setVisible(adapter != null && adapter.getItemCount() > 0);
+
+    final Users users = Users.getInstance();
+    if (users.isLoaded() && !users.getUsers().isEmpty()) {
+      SubMenu userSub = menu.addSubMenu(R.id.action_users, Menu.NONE, Menu.NONE, R.string.action_users);
+
+      OnMenuItemClickListener userClickListener = new OnMenuItemClickListener() {
+        @Override
+        public boolean onMenuItemClick(MenuItem item) {
+          item.setChecked(true);
+          List<UserInfo> userInfos = Users.getInstance().getUsers();
+          for (UserInfo user : userInfos) {
+            if (user.id == item.getItemId() && users.getCurrentUid() != user.id) {
+              onSwitchUser(user);
+              break;
+            }
+          }
+          return true;
+        }
+      };
+
+      List<UserInfo> userInfos = users.getUsers();
+      for (UserInfo user : userInfos) {
+        MenuItem add = userSub.add(R.id.action_users, user.id, Menu.NONE, user.name);
+        add.setCheckable(true);
+        add.setChecked(user.id == users.getCurrentUid());
+        add.setOnMenuItemClickListener(userClickListener);
+      }
+
+      userSub.setGroupCheckable(R.id.action_users, true, true);
+    }
+
+    popupMenu.setOnMenuItemClickListener(item -> {
+      switch (item.getItemId()) {
+        case R.id.action_permission_sort:
+          openSortPermission();
+          return true;
+        case R.id.action_backup:
+          openConfigPerms();
+          return true;
+        case R.id.action_stats:
+          openUsageStats();
+          return true;
+        default:
+          return false;
+      }
+    });
+
+    popupMenu.show();
   }
 
   @Override
@@ -199,46 +257,6 @@ public class MainActivity extends BaseActivity implements SearchView.OnQueryText
     getMenuInflater().inflate(R.menu.ops_menu, menu);
 
     final MenuItem searchMenu = menu.findItem(R.id.action_search);
-    final MenuItem settingsMenu = menu.findItem(R.id.action_setting);
-    final MenuItem premsMenu = menu.findItem(R.id.action_permission_sort);
-
-    menu.findItem(R.id.action_backup).setVisible(adapter != null && adapter.getItemCount() > 0);
-
-    final Users users = Users.getInstance();
-    if(users.isLoaded() && !users.getUsers().isEmpty()){
-      SubMenu userSub = menu.addSubMenu(R.id.action_users,Menu.NONE,Menu.NONE,R.string.action_users);
-
-      userSub.getItem().setShowAsAction(MenuItem.SHOW_AS_ACTION_COLLAPSE_ACTION_VIEW);
-      OnMenuItemClickListener menuItemClickListener = new OnMenuItemClickListener() {
-        @Override
-        public boolean onMenuItemClick(MenuItem item) {
-          item.setChecked(true);
-          List<UserInfo> userInfos = Users.getInstance().getUsers();
-          for (UserInfo user : userInfos) {
-            if(user.id == item.getItemId() && users.getCurrentUid() != user.id){
-              onSwitchUser(user);
-              break;
-            }
-          }
-
-          return true;
-        }
-      };
-
-      List<UserInfo> userInfos = users.getUsers();
-      for (UserInfo user : userInfos) {
-        MenuItem add = userSub.add(R.id.action_users,user.id,Menu.NONE,user.name);
-
-        add.setCheckable(true);
-
-        add.setChecked(user.id == users.getCurrentUid());
-
-        add.setOnMenuItemClickListener(menuItemClickListener);
-      }
-
-      userSub.setGroupCheckable(R.id.action_users,true,true);
-
-    }
 
     SearchManager searchManager = (SearchManager) getSystemService(Context.SEARCH_SERVICE);
     SearchView searchView = (SearchView) searchMenu.getActionView();
