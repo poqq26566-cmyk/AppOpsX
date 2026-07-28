@@ -47,7 +47,7 @@ public class Shell {
     if (sRootShell == null) {
       synchronized (Shell.class) {
         if (sRootShell == null) {
-          sRootShell = openRootShell();
+          sRootShell = openPrivilegedShell();
         }
       }
     }
@@ -56,6 +56,64 @@ public class Shell {
 
   public static Shell openRootShell() throws IOException {
     return new Shell("su", true);
+  }
+
+  // Shizuku.newProcess() hands back a regular java.lang.Process running with whatever
+  // privilege level Shizuku itself was started with (adb shell, or root) -- same shape
+  // as the "su" Process below, so it plugs into the exact same read/write plumbing.
+  public static Shell openShizukuShell() throws IOException {
+    try {
+      Process process = rikka.shizuku.Shizuku.newProcess(new String[]{"sh"}, null, null);
+      return new Shell(process);
+    } catch (Exception e) {
+      throw new IOException("Failed to open Shizuku shell", e);
+    }
+  }
+
+  // Tries Shizuku first (if the Shizuku app is installed, its service is running, and
+  // we've already been granted permission), falls back to a plain "su" root shell
+  // otherwise. This is what getRootShell() below actually calls.
+  private static Shell openPrivilegedShell() throws IOException {
+    if (ShizukuCompat.hasPermission()) {
+      try {
+        return openShizukuShell();
+      } catch (Exception e) {
+        FLog.log("Shizuku shell unavailable, falling back to su: " + e);
+      }
+    }
+    return openRootShell();
+  }
+
+  private Shell(Process process) {
+    proc = process;
+    in = new BufferedReader(new InputStreamReader(proc.getInputStream()));
+    out = proc.getOutputStream();
+
+    Runnable shellRunnable = new Runnable() {
+      @Override
+      public void run() {
+        while (!close) {
+          try {
+            Command command = commandQueue.take();
+            if (command != null && !close) {
+              writeCommand(command);
+              readCommand(command);
+            }
+          } catch (Exception e) {
+            e.printStackTrace();
+          }
+        }
+        if (close) {
+          try {
+            destroyShell();
+          } catch (Exception e) {
+            e.printStackTrace();
+          }
+        }
+      }
+    };
+
+    new Thread(shellRunnable, "shell").start();
   }
 
   private Shell(String cmd, boolean checkRoot) throws IOException {
