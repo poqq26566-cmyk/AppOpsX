@@ -12,18 +12,4 @@
     android:icon="@drawable/ic_settings"
     app:showAsAction="always"
     android:title="@string/menu_setting"/>
-  <item
-    android:id="@+id/action_permission_sort"
-    app:showAsAction="never|collapseActionView"
-    android:title="@string/menu_permission_sort"/>
-  <item
-    android:id="@+id/action_backup"
-    app:showAsAction="never|collapseActionView"
-    android:title="@string/menu_backup"/>
-
-  <item
-    android:id="@+id/action_stats"
-    app:showAsAction="never|collapseActionView"
-    android:title="@string/menu_stats"/>
-
 </menu>
