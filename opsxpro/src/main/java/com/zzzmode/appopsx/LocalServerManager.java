@@ -295,6 +295,19 @@ class LocalServerManager {
     return true;
   }
 
+  // Tries Shizuku first (if available and already granted permission), falls back to
+  // plain "su" otherwise -- same priority order as Shell.java uses.
+  private Process openPrivilegedProcess() throws Exception {
+    if (com.zzzmode.appopsx.common.ShizukuCompat.hasPermission()) {
+      try {
+        return com.zzzmode.appopsx.common.ShizukuCompat.newProcess(new String[]{"sh"});
+      } catch (Exception e) {
+        Log.e(TAG, "Shizuku process unavailable, falling back to su: " + e);
+      }
+    }
+    return Runtime.getRuntime().exec("su");
+  }
+
   private boolean useRootStartServer() throws Exception {
     DataOutputStream outputStream = null;
     RootChecker checker = null;
@@ -303,7 +316,7 @@ class LocalServerManager {
 
       Log.e(TAG, "useRootStartServer --> ");
 
-      exec = Runtime.getRuntime().exec("su");
+      exec = openPrivilegedProcess();
       checker = new RootChecker(exec);
       checker.start();
 
