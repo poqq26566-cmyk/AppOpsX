@@ -133,18 +133,24 @@ def jar2dex(){
     def sdkHome = findSdkHome()
 
     println("android sdk home:${sdkHome}")
-    def dxFile=file("${sdkHome}/build-tools/${rootProject.ext.buildToolsVersion}/dx${isWin()?'.bat':''}".toPath())
+    // dx was removed from build-tools a while ago; d8 is the modern replacement and has
+    // shipped alongside/instead of dx since build-tools 28ish.
+    def d8File=file("${sdkHome}/build-tools/${rootProject.ext.buildToolsVersion}/d8${isWin()?'.bat':''}".toPath())
 
-    if(dxFile.exists()){
-        dxFile.setExecutable(true)
+    if(d8File.exists()){
+        d8File.setExecutable(true)
     }else {
-        throw new RuntimeException("not found dx executable file in path ${dxFile}")
+        throw new RuntimeException("not found d8 executable file in path ${d8File}")
     }
 
-    println("dx binary file:${dxFile}")
+    println("d8 binary file:${d8File}")
 
-    def cmdArgs=['--dex',"--output=$appopsxJar",appopsxOrigJar]
-
+    // Unlike dx, d8 always writes to a directory (as classes.dex, classes2.dex, ...)
+    // rather than being able to wrap the result directly into a named jar via --output,
+    // so dex to a scratch dir first and then jar that up ourselves below.
+    def dexOutDir = file("${project.buildDir.absolutePath}/d8out".toPath())
+    dexOutDir.deleteDir()
+    dexOutDir.mkdirs()
 
     def libsDir = file("${rootProject.projectDir.absolutePath}/opsxpro/libs")
     def assetsDir = file("${rootProject.projectDir.absolutePath}/opsxpro/src/main/assets")
@@ -154,9 +160,19 @@ def jar2dex(){
 
     exec{
         workingDir=project.buildDir.absolutePath
-        executable=dxFile
-        args=cmdArgs
+        executable=d8File
+        args=['--output', dexOutDir.absolutePath, appopsxOrigJar]
     }
+
+    // Re-create appopsxJar as a jar containing the classes.dex(es) d8 just produced,
+    // matching what the old "dx --output=appopsx.jar" invocation used to hand back.
+    file(appopsxJar).delete()
+    exec{
+        workingDir=dexOutDir.absolutePath
+        executable='jar'
+        args=(['cvf', appopsxJar] + dexOutDir.listFiles().collect{it.name})
+    }
+
     copy {
         from commonJar
         into libsDir
