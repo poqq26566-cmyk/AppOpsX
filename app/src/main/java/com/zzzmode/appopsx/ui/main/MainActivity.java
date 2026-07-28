@@ -70,6 +70,19 @@ public class MainActivity extends BaseActivity implements SearchView.OnQueryText
         loadData(true);
       };
 
+  // Shizuku's connection to its service is established asynchronously; a single
+  // synchronous Shizuku.pingBinder() check right at onCreate() can easily race that and
+  // see "not connected yet" even when Shizuku is actually running, meaning we'd silently
+  // never request permission at all (and never even show up as a client in Shizuku's
+  // own app). This listener re-runs the check once the binder genuinely becomes ready.
+  private final Shizuku.OnBinderReceivedListener mShizukuBinderReceivedListener = () -> {
+    if (ShizukuCompat.needsPermissionRequest()) {
+      Shizuku.requestPermission(SHIZUKU_PERMISSION_REQUEST_CODE);
+    } else if (ShizukuCompat.hasPermission()) {
+      loadData(true);
+    }
+  };
+
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
@@ -107,13 +120,10 @@ public class MainActivity extends BaseActivity implements SearchView.OnQueryText
     recyclerView.setItemAnimator(new RefactoredDefaultItemAnimator());
 
     Shizuku.addRequestPermissionResultListener(mShizukuPermissionListener);
+    Shizuku.addBinderReceivedListenerSticky(mShizukuBinderReceivedListener);
 
     adapter = new MainListAdapter();
     recyclerView.setAdapter(adapter);
-
-    if (ShizukuCompat.needsPermissionRequest()) {
-      Shizuku.requestPermission(SHIZUKU_PERMISSION_REQUEST_CODE);
-    }
 
     loadData(true);
     mSwipeRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
@@ -333,6 +343,7 @@ public class MainActivity extends BaseActivity implements SearchView.OnQueryText
   protected void onDestroy() {
     super.onDestroy();
     Shizuku.removeRequestPermissionResultListener(mShizukuPermissionListener);
+    Shizuku.removeBinderReceivedListener(mShizukuBinderReceivedListener);
   }
 
 
