@@ -25,10 +25,13 @@ project.ext {
 
 allprojects {
     repositories {
-        maven { url "https://maven.aliyun.com/repository/public" }
         mavenCentral()
         google()
         maven { url "https://jitpack.io" }
+        // Last resort: mirrors old jcenter/bintray-era artifacts (e.g. tinypinyin) that
+        // never made it to mavenCentral. Kept last since it's occasionally flaky and
+        // everything else should resolve from the repos above anyway.
+        maven { url "https://maven.aliyun.com/repository/public" }
 
     }
 }
