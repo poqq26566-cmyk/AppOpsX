@@ -295,16 +295,21 @@ class LocalServerManager {
     return true;
   }
 
+  private boolean mLastProcessWasShizuku;
+
   // Tries Shizuku first (if available and already granted permission), falls back to
   // plain "su" otherwise -- same priority order as Shell.java uses.
   private Process openPrivilegedProcess() throws Exception {
     if (com.zzzmode.appopsx.common.ShizukuCompat.hasPermission()) {
       try {
-        return com.zzzmode.appopsx.common.ShizukuCompat.newProcess(new String[]{"sh"});
+        Process process = com.zzzmode.appopsx.common.ShizukuCompat.newProcess(new String[]{"sh"});
+        mLastProcessWasShizuku = true;
+        return process;
       } catch (Exception e) {
         Log.e(TAG, "Shizuku process unavailable, falling back to su: " + e);
       }
     }
+    mLastProcessWasShizuku = false;
     return Runtime.getRuntime().exec("su");
   }
 
@@ -317,21 +322,29 @@ class LocalServerManager {
       Log.e(TAG, "useRootStartServer --> ");
 
       exec = openPrivilegedProcess();
-      checker = new RootChecker(exec);
-      checker.start();
 
-      try {
-        checker.join(20000);
-      } catch (Exception e) {
-        e.printStackTrace();
-      }
+      // The RootChecker "echo Started" round trip below exists to handle su's slow,
+      // interactive root-grant prompt (up to 20s). Shizuku already told us definitively
+      // whether we got a usable process the moment openPrivilegedProcess() returned, so
+      // skip the wait entirely in that case -- this was the actual cause of everything
+      // feeling sluggish after switching to Shizuku.
+      if (!mLastProcessWasShizuku) {
+        checker = new RootChecker(exec);
+        checker.start();
 
-      if (checker.exit == -1) {
-        throw new RuntimeException("grant root timeout");
-      }
+        try {
+          checker.join(20000);
+        } catch (Exception e) {
+          e.printStackTrace();
+        }
 
-      if (checker.exit != 1) {
-        throw new RuntimeException(checker.errorMsg);
+        if (checker.exit == -1) {
+          throw new RuntimeException("grant root timeout");
+        }
+
+        if (checker.exit != 1) {
+          throw new RuntimeException(checker.errorMsg);
+        }
       }
 
       outputStream = new DataOutputStream(exec.getOutputStream());
