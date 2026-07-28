@@ -95,5 +95,3 @@ task providedApiCompat  {
 
 providedApiCompat.dependsOn(':apicompat:assembleDebug')
 preBuild.dependsOn(providedApiCompat)
-
-
