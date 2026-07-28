@@ -32,7 +32,7 @@ android {
 }
 
 dependencies {
-    api fileTree(dir: 'libs', include: ['*.jar'])
+    implementation project(":opsxlib")
     api project(":AdbLib")
     compileOnly project(":apicompat")
 }
