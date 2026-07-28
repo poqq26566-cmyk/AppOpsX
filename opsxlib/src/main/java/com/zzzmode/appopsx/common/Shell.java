@@ -63,15 +63,7 @@ public class Shell {
   // as the "su" Process below, so it plugs into the exact same read/write plumbing.
   public static Shell openShizukuShell() throws IOException {
     try {
-      // Shizuku.newProcess(String[], String[], String) is marked private in the public
-      // API jar (the maintainers push UserService/AIDL binding as the "modern" way to
-      // do this instead), but it's still fully functional and this is the documented
-      // community workaround for apps like this one that just need a plain shell
-      // process, not a whole AIDL-bound service.
-      java.lang.reflect.Method newProcess = rikka.shizuku.Shizuku.class.getDeclaredMethod(
-          "newProcess", String[].class, String[].class, String.class);
-      newProcess.setAccessible(true);
-      Process process = (Process) newProcess.invoke(null, (Object) new String[]{"sh"}, null, null);
+      Process process = ShizukuCompat.newProcess(new String[]{"sh"});
       return new Shell(process);
     } catch (Exception e) {
       throw new IOException("Failed to open Shizuku shell", e);
